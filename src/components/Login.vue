@@ -52,15 +52,19 @@
         },
         methods: {
             //登录
-            login(loginFormRef) {
+            login() {
+                //1.验证校验规则
                 this.$refs.loginFormRef.validate(async valid => {
                     if (!valid) return;
-                    const {data: res} = await this.$http.post("login");
-                    if (res == "ok") {
+                    const {data: res} = await this.$http.post("user/login", this.loginForm);
+                    console.log(res)
+                    if (res.code === 1) {
                         this.$message.success("登录成功！跳转到主页中...");
+                        //存储user对象到本地存储器
+                        window.sessionStorage.setItem("user", res.data);
                         await this.$router.push({path: '/home'});
                     } else {
-                        this.$message.error("登录失败！请检查账号或密码是否正确。")
+                        this.$message.error("登录失败！" + res.msg)
                     }
                 });
             },
