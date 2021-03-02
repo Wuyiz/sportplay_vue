@@ -13,15 +13,17 @@
             <el-aside :width="isCollapse?'64px':'200px'">
                 <div @click="toggleCollapase" class="toggle-button">|||</div>
                 <el-menu :collapse="isCollapse" :collapse-transition="false" active-text-color="#409eff"
-                         background-color="#333744" text-color="#fff" unique-opened>
+                         :default-active="activePath" :router="true" background-color="#333744" text-color="#fff"
+                         unique-opened>
                     <!--一级菜单-->
-                    <el-submenu :index="items.id+''" :key="items.id" v-for="items in menuList">
+                    <el-submenu :index="items.path" :key="items.id" v-for="items in menuList">
                         <template slot="title">
                             <i :class="items.icon"></i>
                             <span>{{items.title}}</span>
                         </template>
                         <!--二级菜单-->
-                        <el-menu-item :index="item.id+''" :key="item.id" v-for="item in items.subMenuVOS">
+                        <el-menu-item :index="item.path" :key="item.id" @click="saveNavState(item.path)"
+                                      v-for="item in items.subMenuVOS">
                             <template slot="title">
                                 <i :class="item.subIcon"></i>
                                 <span>{{item.title}}</span>
@@ -30,7 +32,9 @@
                     </el-submenu>
                 </el-menu>
             </el-aside>
-            <el-main>{{menuList}}</el-main>
+            <el-main>
+                <router-view></router-view>
+            </el-main>
         </el-container>
     </el-container>
 </template>
@@ -42,12 +46,15 @@
             return {
                 menuList: [],
                 isCollapse: false,
+                activePath: '/welcome',
             }
         },
         //onload事件，页面加载完成之前执行
         created() {
             //查找菜单栏列表信息
             this.getMenuList();
+            //页面刷新后，取出本地session中存储的导航路径信息
+            this.activePath = window.sessionStorage.getItem("activePath");
         },
         methods: {
             logout() {
@@ -64,6 +71,12 @@
             //切换侧边栏伸缩
             toggleCollapase() {
                 this.isCollapse = !this.isCollapse;
+            },
+            //保存当前点击的导航路径信息
+            saveNavState(activePath) {
+                //保存路径信息到本地session中，保证页面刷新后还可以自动定位
+                window.sessionStorage.setItem("activePath", activePath);
+                this.activePath = activePath;
             },
         }
     }
