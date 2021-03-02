@@ -58,7 +58,7 @@
                     if (!valid) return;
                     const {data: res} = await this.$http.post("user/login", this.loginForm);
                     console.log(res)
-                    if (res.code === 1) {
+                    if (res.code === 200) {
                         this.$message.success("登录成功！跳转到主页中...");
                         //存储user对象到本地存储器
                         window.sessionStorage.setItem("user", res.data);

@@ -10,24 +10,27 @@
         <!--主体-->
         <el-container>
             <!--侧边栏-->
-            <el-aside width="200px">
-                <el-menu active-text-color="#409eff" background-color="#333744" text-color="#fff">
+            <el-aside :width="isCollapse?'64px':'200px'">
+                <div @click="toggleCollapase" class="toggle-button">|||</div>
+                <el-menu :collapse="isCollapse" :collapse-transition="false" active-text-color="#409eff"
+                         background-color="#333744" text-color="#fff" unique-opened>
                     <!--一级菜单-->
-                    <el-submenu index="1">
+                    <el-submenu :index="items.id+''" :key="items.id" v-for="items in menuList">
                         <template slot="title">
-                            <i class="el-icon-location"></i>
-                            <span>导航一</span>
+                            <i :class="items.icon"></i>
+                            <span>{{items.title}}</span>
                         </template>
                         <!--二级菜单-->
-                        <el-menu-item index="1-1">
+                        <el-menu-item :index="item.id+''" :key="item.id" v-for="item in items.subMenuVOS">
                             <template slot="title">
-                                <span>选项一</span>
+                                <i :class="item.subIcon"></i>
+                                <span>{{item.title}}</span>
                             </template>
                         </el-menu-item>
                     </el-submenu>
                 </el-menu>
             </el-aside>
-            <el-main>Main</el-main>
+            <el-main>{{menuList}}</el-main>
         </el-container>
     </el-container>
 </template>
@@ -38,6 +41,7 @@
         data() {
             return {
                 menuList: [],
+                isCollapse: false,
             }
         },
         //onload事件，页面加载完成之前执行
@@ -51,9 +55,16 @@
                 window.sessionStorage.clear();
                 this.$router.push("/login");
             },
-            getMenuList() {
-                console.log("getMenuList");
-            }
+            async getMenuList() {
+                const {data: res} = await this.$http.get("menu/get");
+                console.log(res.data);
+                if (res.code !== 200) return this.$message.error("列表获取失败！！！");
+                this.menuList = res.data;
+            },
+            //切换侧边栏伸缩
+            toggleCollapase() {
+                this.isCollapse = !this.isCollapse;
+            },
         }
     }
 </script>
@@ -85,6 +96,10 @@
 
     .el-aside {
         background-color: #333744;
+
+        .el-menu {
+            border-right: none; //消除菜单栏右边框不齐
+        }
     }
 
     .el-main {
@@ -94,5 +109,15 @@
     .logo_img {
         width: 55px;
         height: 55px;
+    }
+
+    .toggle-button {
+        background-color: #4A5064;
+        font-size: 10px;
+        line-height: 24px;
+        color: #fff;
+        text-align: center;
+        letter-spacing: 0.2em;
+        cursor: pointer; // 显示鼠标指针为：小手
     }
 </style>
