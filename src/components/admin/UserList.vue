@@ -17,7 +17,8 @@
                     </el-input>
                 </el-col>
                 <el-col :span="4">
-                    <el-button @click="dialogAddUserFormVisible = true" type="primary">添加用户</el-button>
+                    <el-button @click="showAddDialog" type="primary">添加用户
+                    </el-button>
                 </el-col>
                 <el-col :span="10">
                     <!--分页组件-->
@@ -51,10 +52,11 @@
                 <el-table-column label="操作">
                     <template slot-scope="scope">
                         <!-- 修改 -->
-                        <el-button @click="showEditDialog(scope.row.id)" icon="el-icon-edit" size="mini"
+                        <el-button @click="showEditDialog(scope.row)" icon="el-icon-edit" size="mini"
                                    type="primary"></el-button>
                         <!-- 删除 -->
-                        <el-button @click="deleteUser(scope.row.id)" icon="el-icon-delete" size="mini"
+                        <el-button @click="deleteUser(scope.row.id,scope.row.username)" icon="el-icon-delete"
+                                   size="mini"
                                    type="danger"></el-button>
                         <!-- 权限 -->
                         <el-tooltip :enterable="false" content="分配权限" effect="dark" placement="top-start">
@@ -66,21 +68,26 @@
             </el-table>
         </el-card>
         <!--dialog对话框-->
-        <el-dialog :visible.sync="dialogAddUserFormVisible" title="添加用户" width="50%">
-            <el-form :model="addForm" :rules="addFormRole" label-width="70px" ref="addFormRef">
+        <el-dialog :title="dialogInfo.action?'添加用户':'编辑用户'" :visible.sync="dialogInfo.dialogFormVisible" width="50%">
+            <el-form :model="dialogForm" :rules="dialogFormRole" label-width="70px" ref="dialogFormRef">
                 <el-form-item label="用户名" prop="username">
-                    <el-input autocomplete="off" v-model="addForm.username"></el-input>
+                    <el-input autocomplete="off" v-model="dialogForm.username"></el-input>
                 </el-form-item>
                 <el-form-item label="密码" prop="password">
-                    <el-input autocomplete="off" v-model="addForm.password"></el-input>
+                    <el-input autocomplete="off" v-model="dialogForm.password"></el-input>
                 </el-form-item>
                 <el-form-item label="邮箱" prop="email">
-                    <el-input autocomplete="off" v-model="addForm.email"></el-input>
+                    <el-input autocomplete="off" v-model="dialogForm.email"></el-input>
                 </el-form-item>
             </el-form>
             <div class="dialog-footer" slot="footer">
-                <el-button @click="dialogAddUserFormVisible = false">取 消</el-button>
-                <el-button :disabled="isDisabled" @click="addUser" type="primary">确 定</el-button>
+                <el-button @click="dialogInfo.dialogFormVisible = false">取 消</el-button>
+                <template v-if="dialogInfo.action">
+                    <el-button :disabled="dialogInfo.isDisabled" @click="addUser" type="primary">确 定</el-button>
+                </template>
+                <template v-else>
+                    <el-button :disabled="dialogInfo.isDisabled" @click="editUser" type="primary">确 定</el-button>
+                </template>
             </div>
         </el-dialog>
     </div>
@@ -104,8 +111,6 @@
                 }, 100)
             };
             return {
-                isDisabled: false,
-
                 //查询信息实体
                 queryInfo: {
                     query: "",   //查询内容
@@ -116,16 +121,24 @@
                 //分页后数据实体
                 pageInfo: [],
 
-                dialogAddUserFormVisible: false,    //dialog对话框状态
-                //用户表单信息
-                addForm: {
+                //dialog对话框状态信息
+                dialogInfo: {
+                    action: true,        //当前请求动作 true:add, false:edit
+                    isDisabled: false,      //btn提交时禁用
+                    dialogFormVisible: false,    //dialog对话框状态
+                },
+                //dialog用户表单信息
+                dialogForm: {
+                    id: "",
                     username: "",
                     password: "",
-                    email: ""
+                    email: "",
+                    role: "",
+                    state: ""
                 },
 
                 //验证规则
-                addFormRole: {
+                dialogFormRole: {
                     username: [
                         {required: true, message: '请输入用户名称', trigger: 'blur'},
                         {min: 5, max: 12, message: '长度在 5 ~ 12 个字符', trigger: 'blur'}
@@ -159,6 +172,7 @@
                 this.queryInfo.pageNum = newPage;
                 this.getUserList();
             },
+            //更新用户状态
             async updateState(userInfo) {
                 const {data: res} = await this.$http.put(`user/state?id=${userInfo.id}&state=${userInfo.state}`);
                 if (res.code !== 200) {
@@ -167,20 +181,58 @@
                 }
                 this.$message.success("修改成功！！！")
             },
+            showAddDialog() {
+                this.dialogInfo.action = true;
+                this.dialogInfo.dialogFormVisible = true;
+                this.dialogForm = {};
+            },
+            //添加新用户
             addUser() {
-                this.isDisabled = true;
-                this.$refs.addFormRef.validate(async valid => {
-                    if (!valid) return;
-                    const {data: res} = await this.$http.post("user/save", this.addForm);
+                this.dialogInfo.isDisabled = true;      //提交时禁用按钮，放置重复提交
+                this.$refs.dialogFormRef.validate(async valid => {
+                    if (!valid) return;     //校验输入框数据，校验失败则禁止提交
+                    const {data: res} = await this.$http.post("user/save", this.dialogForm);
                     if (res.code !== 200) {
                         return this.$message.error("添加新用户失败！！！");
                     }
                     this.$message.success("添加新用户成功！！！")
-                    this.dialogAddUserFormVisible = false;
-                    this.$refs.addFormRef.resetFields();    //清空dialog表单残留内容
-                    this.getUserList();
+                    this.dialogInfo.dialogFormVisible = false;
+                    this.$refs.dialogFormRef.resetFields();    //清空dialog表单残留内容
+                    this.getUserList();     //刷新列表
                 });
-                this.isDisabled = false;
+                this.dialogInfo.isDisabled = false;
+            },
+            async deleteUser(id, username) {
+                const confirmResult = await this.$confirm('此操作将永久删除 ' + username + ' 用户，是否继续？', '提示', {
+                    confirmButtonText: '确定',
+                    showConfirmButton: '取消',
+                    type: 'warning'
+                }).catch(err => err)
+                if (confirmResult !== 'confirm') return this.$message.info("已取消");
+                const {data: res} = await this.$http.delete(`user/delete/${id}`);
+                if (res.code !== 200) return this.$message.error("删除失败！！！");
+                this.getUserList();
+            },
+            //切换编辑的dialog对话框
+            showEditDialog(user) {
+                this.dialogInfo.action = false;     //设置操作动作为edit，主要用于显示title
+                this.dialogInfo.dialogFormVisible = true;   //设置对话框是否显示
+                this.dialogForm = user;     //回写要编辑的用户信息到对话框中
+            },
+            editUser() {
+                this.dialogInfo.isDisabled = true;      //提交时禁用按钮，放置重复提交
+                this.$refs.dialogFormRef.validate(async valid => {
+                    if (!valid) return;     //校验输入框数据，校验失败则禁止提交
+                    const {data: res} = await this.$http.put("user/edit", this.dialogForm);
+                    if (res.code !== 200) {
+                        return this.$message.error("编辑失败！！！");
+                    }
+                    this.$message.success("编辑成功！！！")
+                    this.dialogInfo.dialogFormVisible = false;
+                    this.$refs.dialogFormRef.resetFields();    //清空dialog表单残留内容
+                    this.getUserList();     //刷新列表
+                });
+                this.dialogInfo.isDisabled = false;
             },
         },
     }
